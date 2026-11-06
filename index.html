@@ -133,7 +133,7 @@
   <label class="row"><span>Countdown before start: <b id="cdOut"></b></span><input id="cd" type="range" min="0" max="5" step="1"></label>
   <div class="toggle"><span>Mirror the text (for a mirror rig)</span><input type="checkbox" id="mir"></div>
   <div class="toggle"><span>Start scrolling when recording starts</span><input type="checkbox" id="autoScroll"></div>
-  <p class="meta">While recording, tap the script to pause or resume it, and drag it to move back or forward. The + and − buttons change the speed as you go.</p>
+  <p class="meta">Most people speak at about 150 words a minute. Press Practise to try a speed before you record. While recording, tap the script to pause or resume it, and drag it to move back or forward. The + and − buttons change the speed as you go.</p>
 </section>
 
 <!-- review a take -->
@@ -162,7 +162,7 @@
   if (!Array.isArray(scripts) || !scripts.length) scripts = [{ id: Date.now(), body: SAMPLE }];
   let curId = store.get('cur', scripts[0].id);
   if (!scripts.find(s => s.id === curId)) curId = scripts[0].id;
-  const cfg = Object.assign({ speed: 5, fs: 30, sh: 34, cd: 3, bg: 15, mirror: false, autoScroll: true }, store.get('cfg', {}));
+  const cfg = Object.assign({ speed: 4, fs: 30, sh: 34, cd: 3, bg: 15, mirror: false, autoScroll: true }, store.get('cfg', {}));
 
   const cur = () => scripts.find(s => s.id === curId);
   const saveScripts = () => { store.set('scripts', scripts); store.set('cur', curId); };
@@ -178,10 +178,20 @@
     document.documentElement.style.setProperty('--strip-h', cfg.sh + 'vh');
     document.documentElement.style.setProperty('--strip-a', cfg.bg / 100);
     $('strip').classList.toggle('mirror', cfg.mirror);
-    $('speedVal').textContent = cfg.speed;
-    place();
+    place(); showSpeed();
   }
-  function renderText(){ textEl.textContent = cur().body; offset = 0; place(); }
+  // words per minute at the current speed, measured from the real script layout
+  function wpm(){
+    const words = (cur().body.match(/\S+/g) || []).length;
+    const h = textEl.scrollHeight - window.innerHeight * 0.6 - 8;
+    if (!words || h <= 0) return 0;
+    return Math.round(words / h * pxPerSec() * 60);
+  }
+  function showSpeed(){
+    const w = wpm(), t = cfg.speed + ' of 20' + (w ? ' (about ' + w + ' words a minute)' : '');
+    $('spdOut').textContent = t; $('speedVal').textContent = w ? w + ' wpm' : cfg.speed;
+  }
+  function renderText(){ textEl.textContent = cur().body; offset = 0; place(); showSpeed(); }
   function maxOffset(){ return Math.max(0, textEl.scrollHeight - stripInner.clientHeight * 0.4 - window.innerHeight * 0.6); }
   function place(){
     offset = Math.min(Math.max(0, offset), maxOffset());
@@ -353,6 +363,7 @@
     el.oninput = () => { cfg[key] = +el.value; $(out).textContent = fmt(cfg[key]); saveCfg(); applyCfg(); };
   };
   bind('spd', 'speed', 'spdOut', v => v + ' of 20');
+  showSpeed();
   bind('bg', 'bg', 'bgOut', v => v ? v + '% dark' : 'fully see-through');
   bind('fs', 'fs', 'fsOut', v => v + 'px');
   bind('sh', 'sh', 'shOut', v => v + '% of screen');
@@ -369,7 +380,7 @@
     else { rehearsing = true; offset = 0; place(); setScrolling(true); }
     setModeUI();
   };
-  const nudge = d => { cfg.speed = Math.min(20, Math.max(1, cfg.speed + d)); $('spd').value = cfg.speed; $('spdOut').textContent = cfg.speed + ' of 20'; saveCfg(); applyCfg(); };
+  const nudge = d => { cfg.speed = Math.min(20, Math.max(1, cfg.speed + d)); $('spd').value = cfg.speed; saveCfg(); applyCfg(); };
   $('faster').onclick = () => nudge(1);
   $('slower').onclick = () => nudge(-1);
   $('saveBtn').onclick = saveTake;
